@@ -1,4 +1,4 @@
-use bbqueue::{Producer, GrantW};
+use bbqueue::Producer;
 use crate::BUFFER_SIZE;
 use crate::Error;
 

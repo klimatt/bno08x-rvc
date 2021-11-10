@@ -1,13 +1,14 @@
-use bbqueue::{Consumer, GrantR, BBBuffer};
-use crate::{BUFFER_SIZE, MAX_AMOUNT_OF_FRAMES, BNO08X_UART_RVC_HEADER, BNO08X_UART_RVC_FRAME_SIZE};
+use bbqueue::{Consumer};
+use crate::{BUFFER_SIZE, BNO08X_UART_RVC_HEADER, BNO08X_UART_RVC_FRAME_SIZE};
 use crate::Error;
-use core::borrow::BorrowMut;
+use core::borrow::{Borrow};
 
 #[derive(Copy, Clone)]
 pub struct Bno08xRvcRawFrame {
     index: u8,
     yaw: u16,
     pitch: u16,
+    roll: u16,
     x_acc: u16,
     y_acc: u16,
     z_acc: u16,
@@ -17,7 +18,7 @@ pub struct Bno08xRvcRawFrame {
     csum: u8
 }
 
-enum State{
+enum State {
     LookingForFirstHeaderByte,
     LookingForSecondHeaderByte,
     GetFrameData
@@ -25,7 +26,7 @@ enum State{
 
 pub struct Parser{
     consumer: Consumer<'static, BUFFER_SIZE>,
-    last_frame: Bno08xRvcRawFrame,
+    last_frame: Option<Bno08xRvcRawFrame>,
     state: State
 }
 
@@ -33,35 +34,45 @@ impl Parser{
     pub fn new(consumer: Consumer<'static, BUFFER_SIZE>) -> Parser {
         Parser{
             consumer,
-            last_frame: Bno08xRvcRawFrame {
-                index: 0,
-                yaw: 0,
-                pitch: 0,
-                x_acc: 0,
-                y_acc: 0,
-                z_acc: 0,
-                motion_intent: 0,
-                motion_request: 0,
-                rsvd: 0,
-                csum: 0
-            },
+            last_frame: None,
             state: State::LookingForFirstHeaderByte
         }
     }
 
-    pub fn worker<F: FnMut(&[Bno08xRvcRawFrame])>(&mut self, mut f: F) -> Result<(), Error> {
-        let rgr = match self.consumer.read(){
-            Ok(rgr) => { rgr }
-            Err(e) => { return Err(Error::BbqError(e)) }
-        };
+    pub fn get_last_raw_frame(&self) -> Option<Bno08xRvcRawFrame> {
+        self.last_frame
+    }
 
-        self.parse(rgr.as_ref()).unwrap();
-        Ok(())
+    pub fn worker<F: FnMut(&Bno08xRvcRawFrame)>(&mut self, f_opt: Option<F>) -> Result<(), Error> {
+        return match self.consumer.read() {
+         Ok(rgr) => {
+             match self.parse(rgr.as_ref()) {
+                 None => { Ok(()) }
+                 Some((frame_option, release_size)) => {
+                     rgr.release(release_size);
+                     match frame_option {
+                         None => { Ok(()) }
+                         Some(frame) => {
+                             return match f_opt {
+                                 None => { Ok(()) }
+                                 Some(mut f) => {
+                                     f(frame.borrow());
+                                     Ok(())
+                                 }
+                             }
+                         }
+                     }
+                 }
+             }
+         }
+         Err(e) => { Err(Error::BbqError(e)) }
+        };
     }
 
     fn parse(&mut self, raw_bytes: &[u8]) -> Option<(Option<Bno08xRvcRawFrame>, usize)> { // release size
         if raw_bytes.len() >= BNO08X_UART_RVC_FRAME_SIZE {
             let mut rem_len = raw_bytes.len();
+            let mut release_size = raw_bytes.len();
             for (idx, iter) in raw_bytes.iter().enumerate() {
                  match self.state {
                     State::LookingForFirstHeaderByte => {
@@ -70,7 +81,6 @@ impl Parser{
                         } else {
                             self.state = State::LookingForFirstHeaderByte;
                         }
-                        idx += 1;
                     }
                     State::LookingForSecondHeaderByte => {
                         if *iter == BNO08X_UART_RVC_HEADER as u8 {
@@ -78,17 +88,27 @@ impl Parser{
                         } else {
                             self.state = State::LookingForSecondHeaderByte;
                         }
-                        idx += 1;
                     }
                     State::GetFrameData => {
                         if rem_len >= (BNO08X_UART_RVC_FRAME_SIZE - 2){
-                            self.last_frame.index = *iter;
-                            self.last_frame.yaw
-
-                            idx += BNO08X_UART_RVC_FRAME_SIZE - 2;
+                            self.last_frame = Some(
+                                Bno08xRvcRawFrame{
+                                    index: raw_bytes[idx],
+                                    yaw: ((raw_bytes[idx + 2] as u16) << 8 ) | raw_bytes[idx + 1] as u16,
+                                    pitch: ((raw_bytes[idx + 4] as u16) << 8 ) | raw_bytes[idx + 3] as u16,
+                                    roll: ((raw_bytes[idx + 6] as u16) << 8 ) | raw_bytes[idx + 5] as u16,
+                                    x_acc: ((raw_bytes[idx + 8] as u16) << 8 ) | raw_bytes[idx + 7] as u16,
+                                    y_acc: ((raw_bytes[idx + 10] as u16) << 8 ) | raw_bytes[idx + 9] as u16,
+                                    z_acc: ((raw_bytes[idx + 12] as u16) << 8 ) | raw_bytes[idx + 11] as u16,
+                                    motion_intent: raw_bytes[idx + 13],
+                                    motion_request: raw_bytes[idx + 14],
+                                    rsvd: raw_bytes[idx + 15],
+                                    csum: raw_bytes[idx + 16],
+                                }
+                            );
+                            release_size = idx + BNO08X_UART_RVC_FRAME_SIZE - 2;
                         }
-                        else { idx += rem_len; }
-
+                        else { release_size = idx - 2; }
                         self.state = State::LookingForFirstHeaderByte;
                         break;
                     }
@@ -96,12 +116,12 @@ impl Parser{
                 rem_len -= 1;
             }
             if rem_len == 0{
-                Some((None, idx))
+                self.state = State::LookingForFirstHeaderByte;
+                Some((None, release_size))
             }
             else {
-                Some((Some(frame), idx))
+                Some((self.last_frame, release_size))
             }
-
         }
         else {
             None

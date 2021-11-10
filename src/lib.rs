@@ -1,6 +1,6 @@
 #![no_std]
 
-use bbqueue::{BBBuffer, Producer, Consumer};
+use bbqueue::BBBuffer;
 
 pub mod processor;
 pub mod parser;
