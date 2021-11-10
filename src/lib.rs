@@ -12,7 +12,7 @@ const MAX_AMOUNT_OF_FRAMES: usize = 3;
 pub const BNO08X_UART_RVC_BAUD_RATE: u32 = 115_200;
 pub const BUFFER_SIZE: usize = (BNO08X_UART_RVC_FRAME_SIZE * MAX_AMOUNT_OF_FRAMES ) + 1;
 
-
+#[derive(Debug)]
 pub enum Error{
     BbqError(bbqueue::Error),
 }

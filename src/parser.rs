@@ -3,15 +3,15 @@ use crate::{BUFFER_SIZE, BNO08X_UART_RVC_HEADER, BNO08X_UART_RVC_FRAME_SIZE};
 use crate::Error;
 use core::borrow::{Borrow};
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Bno08xRvcRawFrame {
     index: u8,
-    yaw: u16,
-    pitch: u16,
-    roll: u16,
-    x_acc: u16,
-    y_acc: u16,
-    z_acc: u16,
+    yaw: i16,
+    pitch: i16,
+    roll: i16,
+    x_acc: i16,
+    y_acc: i16,
+    z_acc: i16,
     motion_intent: u8,
     motion_request: u8,
     rsvd: u8,
@@ -43,7 +43,7 @@ impl Parser{
         self.last_frame
     }
 
-    pub fn worker<F: FnMut(&Bno08xRvcRawFrame)>(&mut self, f_opt: Option<F>) -> Result<(), Error> {
+    pub fn worker<F: FnMut(&Bno08xRvcRawFrame)>(&mut self, mut f_opt: F) -> Result<(), Error> {
         return match self.consumer.read() {
          Ok(rgr) => {
              match self.parse(rgr.as_ref()) {
@@ -53,13 +53,8 @@ impl Parser{
                      match frame_option {
                          None => { Ok(()) }
                          Some(frame) => {
-                             return match f_opt {
-                                 None => { Ok(()) }
-                                 Some(mut f) => {
-                                     f(frame.borrow());
-                                     Ok(())
-                                 }
-                             }
+                             f_opt(frame.borrow());
+                             Ok(())
                          }
                      }
                  }
@@ -94,12 +89,12 @@ impl Parser{
                             self.last_frame = Some(
                                 Bno08xRvcRawFrame{
                                     index: raw_bytes[idx],
-                                    yaw: ((raw_bytes[idx + 2] as u16) << 8 ) | raw_bytes[idx + 1] as u16,
-                                    pitch: ((raw_bytes[idx + 4] as u16) << 8 ) | raw_bytes[idx + 3] as u16,
-                                    roll: ((raw_bytes[idx + 6] as u16) << 8 ) | raw_bytes[idx + 5] as u16,
-                                    x_acc: ((raw_bytes[idx + 8] as u16) << 8 ) | raw_bytes[idx + 7] as u16,
-                                    y_acc: ((raw_bytes[idx + 10] as u16) << 8 ) | raw_bytes[idx + 9] as u16,
-                                    z_acc: ((raw_bytes[idx + 12] as u16) << 8 ) | raw_bytes[idx + 11] as u16,
+                                    yaw: ((raw_bytes[idx + 2] as i16) << 8 ) | raw_bytes[idx + 1] as i16,
+                                    pitch: ((raw_bytes[idx + 4] as i16) << 8 ) | raw_bytes[idx + 3] as i16,
+                                    roll: ((raw_bytes[idx + 6] as i16) << 8 ) | raw_bytes[idx + 5] as i16,
+                                    x_acc: ((raw_bytes[idx + 8] as i16) << 8 ) | raw_bytes[idx + 7] as i16,
+                                    y_acc: ((raw_bytes[idx + 10] as i16) << 8 ) | raw_bytes[idx + 9] as i16,
+                                    z_acc: ((raw_bytes[idx + 12] as i16) << 8 ) | raw_bytes[idx + 11] as i16,
                                     motion_intent: raw_bytes[idx + 13],
                                     motion_request: raw_bytes[idx + 14],
                                     rsvd: raw_bytes[idx + 15],
