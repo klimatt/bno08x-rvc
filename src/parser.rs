@@ -26,7 +26,7 @@ enum State {
 }
 
 pub struct Parser {
-    consumer: Consumer<'static, BUFFER_SIZE>,
+    pub(crate) consumer: Consumer<'static, BUFFER_SIZE>,
     last_frame: Option<Bno08xRvcRawFrame>,
     state: State,
 }
@@ -64,7 +64,6 @@ impl Parser {
     }
 
     fn parse(&mut self, raw_bytes: &[u8]) -> Option<(Option<Bno08xRvcRawFrame>, usize)> {
-        // release size
         if raw_bytes.len() >= BNO08X_UART_RVC_FRAME_SIZE {
             let mut rem_len = raw_bytes.len();
             let mut release_size = raw_bytes.len();
@@ -98,7 +97,7 @@ impl Parser {
                             }
                             release_size = idx + BNO08X_UART_RVC_FRAME_SIZE - 2;
                         } else {
-                            release_size = idx - 2;
+                            release_size = 0;
                         }
                         self.state = State::LookingForFirstHeaderByte;
                         break;
