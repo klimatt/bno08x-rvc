@@ -1,11 +1,11 @@
-# bno08x-rvc
+# `bno08x-rvc`
 Small library to parse output from the BNO08x sensor (BNO080/85/86) in RVC mode.
 
 Based on lockless queues: [bbqueue](https://crates.io/crates/bbqueue).
 
 Datasheet on UART-RVC mode for BNO08x sensor: [Datasheet](https://github.com/klimatt/bno08x-rvc/blob/main/bno08x_rvc_datasheet.pdf)
 
-Example usage: 
+## Example usage: 
 ```sh
 use bbqueue::BBBuffer;
 use bno08x_rvc;
