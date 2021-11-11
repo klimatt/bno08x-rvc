@@ -4,19 +4,19 @@ use bbqueue::Consumer;
 use core::borrow::Borrow;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialEq)]
 pub struct Bno08xRvcRawFrame {
-    index: u8,
-    yaw: i16,
-    pitch: i16,
-    roll: i16,
-    x_acc: i16,
-    y_acc: i16,
-    z_acc: i16,
-    motion_intent: u8,
-    motion_request: u8,
-    rsvd: u8,
-    csum: u8,
+    pub index: u8,
+    pub yaw: i16,
+    pub pitch: i16,
+    pub roll: i16,
+    pub x_acc: i16,
+    pub y_acc: i16,
+    pub z_acc: i16,
+    pub motion_intent: u8,
+    pub motion_request: u8,
+    pub rsvd: u8,
+    pub csum: u8,
 }
 
 enum State {

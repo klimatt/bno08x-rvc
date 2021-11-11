@@ -12,4 +12,4 @@ repository = "https://github.com/klimatt/bno08x-rvc"
 [dependencies]
 bbqueue = "0.5.0"
 postcard = { version = "0.7.2", default-features = false }
-serde = { version = "1.0.130", default-features = false, features = ["derive"]}
+serde = { version = "1.0.130", default-features = false, features = ["derive"] }
