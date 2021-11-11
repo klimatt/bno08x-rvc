@@ -9,7 +9,7 @@ categories = ["embedded", "no-std", "bno080", "bno085", "bno086", "rvc", "uart-r
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/klimatt/bno08x-rvc"
 exclude = [
-    "bno08x_rvc_datasheet"
+    "bno08x_rvc_datasheet.pdf"
 ]
 
 [dependencies]
