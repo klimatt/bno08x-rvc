@@ -3,7 +3,7 @@ name = "bno08x-rvc"
 version = "0.1.0"
 edition = "2018"
 authors = ["Matvei Klimov <klimatt.gu@gmail.com>"]
-description = "Crate to parse data from bno08x sensor in RVC mode"
+description = "Small library to parse bno08x-sensor (bno080, bno085, bno086) output in RVC mode. Based on lockless queues."
 readme = "README.md"
 categories = ["embedded", "no-std", "bno080", "bno085", "bno086", "rvc", "uart-rvc"]
 license = "MIT OR Apache-2.0"
@@ -13,3 +13,4 @@ repository = "https://github.com/klimatt/bno08x-rvc"
 bbqueue = "0.5.0"
 postcard = { version = "0.7.2", default-features = false }
 serde = { version = "1.0.130", default-features = false, features = ["derive"] }
+
