@@ -2,8 +2,9 @@ use bbqueue::{Consumer};
 use crate::{BUFFER_SIZE, BNO08X_UART_RVC_HEADER, BNO08X_UART_RVC_FRAME_SIZE};
 use crate::Error;
 use core::borrow::{Borrow};
+use serde::Deserialize;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Copy, Clone)]
 pub struct Bno08xRvcRawFrame {
     index: u8,
     yaw: i16,
@@ -86,21 +87,12 @@ impl Parser{
                     }
                     State::GetFrameData => {
                         if rem_len >= (BNO08X_UART_RVC_FRAME_SIZE - 2){
-                            self.last_frame = Some(
-                                Bno08xRvcRawFrame{
-                                    index: raw_bytes[idx],
-                                    yaw: ((raw_bytes[idx + 2] as i16) << 8 ) | raw_bytes[idx + 1] as i16,
-                                    pitch: ((raw_bytes[idx + 4] as i16) << 8 ) | raw_bytes[idx + 3] as i16,
-                                    roll: ((raw_bytes[idx + 6] as i16) << 8 ) | raw_bytes[idx + 5] as i16,
-                                    x_acc: ((raw_bytes[idx + 8] as i16) << 8 ) | raw_bytes[idx + 7] as i16,
-                                    y_acc: ((raw_bytes[idx + 10] as i16) << 8 ) | raw_bytes[idx + 9] as i16,
-                                    z_acc: ((raw_bytes[idx + 12] as i16) << 8 ) | raw_bytes[idx + 11] as i16,
-                                    motion_intent: raw_bytes[idx + 13],
-                                    motion_request: raw_bytes[idx + 14],
-                                    rsvd: raw_bytes[idx + 15],
-                                    csum: raw_bytes[idx + 16],
-                                }
-                            );
+                            let data = &raw_bytes[idx..(idx + BNO08X_UART_RVC_FRAME_SIZE - 2)];
+                            let csum = data[0..(data.len() - 1)].iter().map(|v| *v as u32).sum::<u32>() as u8;
+                            let frame_unchecked: Bno08xRvcRawFrame = postcard::from_bytes(data).ok()?;
+                            if csum == frame_unchecked.csum {
+                                self.last_frame = Some( frame_unchecked );
+                            }
                             release_size = idx + BNO08X_UART_RVC_FRAME_SIZE - 2;
                         }
                         else { release_size = idx - 2; }
