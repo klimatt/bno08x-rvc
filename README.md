@@ -1,9 +1,11 @@
 # `bno08x-rvc`
 Small library to parse output from the BNO08x sensor (BNO080/85/86) in RVC mode.
 
-Based on lockless queues: [bbqueue](https://crates.io/crates/bbqueue).
+Based on lockless queues: [[bbqueue]](https://crates.io/crates/bbqueue).
 
-Datasheet on UART-RVC mode for BNO08x sensor: [Datasheet](https://github.com/klimatt/bno08x-rvc/blob/main/bno08x_rvc_datasheet.pdf)
+Datasheet on UART-RVC mode for BNO08x sensor: [[Datasheet]](https://github.com/klimatt/bno08x-rvc/blob/main/bno08x_rvc_datasheet.pdf)
+
+Example for NUCLEO-L476RG: [[Code]](https://github.com/klimatt/nucleo-l476rg-rtic-bno08x-rvc) / [[Datasheet]](https://www.st.com/en/evaluation-tools/nucleo-l476rg.html#overview)
 
 ## Example usage: 
 ```sh
