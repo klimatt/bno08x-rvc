@@ -11,7 +11,7 @@ const BNO08X_UART_RVC_HEADER: u16 = 0xAAAA;
 const MAX_AMOUNT_OF_FRAMES: usize = 3;
 
 pub const BNO08X_UART_RVC_BAUD_RATE: u32 = 115_200;
-pub const BUFFER_SIZE: usize = (BNO08X_UART_RVC_FRAME_SIZE * MAX_AMOUNT_OF_FRAMES) + 1;
+pub const BUFFER_SIZE: usize = BNO08X_UART_RVC_FRAME_SIZE * MAX_AMOUNT_OF_FRAMES;
 
 #[derive(Debug)]
 pub enum Error {
@@ -285,5 +285,137 @@ mod tests {
             matches!(parser_result, Err(bbqueue::Error::InsufficientSize)),
             true
         );
+    }
+
+    #[test]
+    fn try_to_process_invalid_frames_by_byte() {
+        let test_data: [u8; BUFFER_SIZE] = [0xFF; BUFFER_SIZE];
+        static BB: BBBuffer<{ BUFFER_SIZE }> = BBBuffer::new();
+        let create_option = match create(BB.borrow()) {
+            Ok((proc, pars)) => Some((proc, pars)),
+            Err(_) => None,
+        };
+        assert_eq!(matches!(create_option, None), false);
+        let (mut processor, mut parser) = create_option.unwrap();
+        for (idx, iter) in test_data.iter().enumerate() {
+            let byte = *iter;
+            let processor_result = processor.process_slice(&[byte]);
+            assert_eq!(
+                matches!(
+                    processor_result,
+                    Err(Error::BbqError(bbqueue::Error::InsufficientSize))
+                ),
+                false
+            );
+            let worker_result = parser.worker(|_| {
+                panic!();
+            });
+            assert_eq!(
+                matches!(
+                    worker_result,
+                    Err(Error::BbqError(bbqueue::Error::InsufficientSize))
+                ),
+                false
+            );
+            assert_eq!(parser.get_last_raw_frame(), None);
+            match parser.consumer.read() {
+                Ok(_) => {
+                    panic!("{:}", idx);
+                }
+                Err(e) => {
+                    assert_eq!(matches!(e, bbqueue::Error::InsufficientSize), true);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn try_to_process_valid_frames_by_byte() {
+        let test_data: [u8; BUFFER_SIZE] = [
+            0xAA, 0xAA, 0xDE, 0x01, 0x00, 0x92, 0xFF, 0x25, 0x08, 0x8D, 0xFE, 0xEC, 0xFF, 0xD1,
+            0x03, 0x00, 0x00, 0x00, 0xE7, 0xAA, 0xAA, 0xDE, 0x01, 0x00, 0x92, 0xFF, 0x25, 0x08,
+            0x8D, 0xFE, 0xEC, 0xFF, 0xD1, 0x03, 0x00, 0x00, 0x00, 0xE7, 0xAA, 0xAA, 0xDE, 0x01,
+            0x00, 0x92, 0xFF, 0x25, 0x08, 0x8D, 0xFE, 0xEC, 0xFF, 0xD1, 0x03, 0x00, 0x00, 0x00,
+            0xE7,
+        ];
+        static BB: BBBuffer<{ BUFFER_SIZE }> = BBBuffer::new();
+        let create_option = match create(BB.borrow()) {
+            Ok((proc, pars)) => Some((proc, pars)),
+            Err(_) => None,
+        };
+        assert_eq!(matches!(create_option, None), false);
+        let (mut processor, mut parser) = create_option.unwrap();
+        let mut flag_in_worker = 0;
+        for iter in test_data.iter() {
+            let byte = *iter;
+            let processor_result = processor.process_slice(&[byte]);
+            assert_eq!(
+                matches!(
+                    processor_result,
+                    Err(Error::BbqError(bbqueue::Error::InsufficientSize))
+                ),
+                false
+            );
+            parser
+                .worker(|frame| {
+                    assert_eq!(*frame, TEST_FRAME);
+                    flag_in_worker += 1;
+                })
+                .unwrap();
+        }
+        assert_eq!(flag_in_worker, 3);
+        match parser.consumer.read() {
+            Ok(_) => {
+                panic!("Rgr is not empty!");
+            }
+            Err(e) => {
+                assert_eq!(matches!(e, bbqueue::Error::InsufficientSize), true);
+            }
+        }
+    }
+
+    #[test]
+    fn try_to_process_valid_and_invalid_frames_by_byte() {
+        let test_data: [u8; BUFFER_SIZE] = [
+            0xAA, 0xBB, 0xDE, 0x01, 0x00, 0x92, 0xFF, 0x25, 0x08, 0x8D, 0xFE, 0xEC, 0xFF, 0xD1,
+            0x03, 0x00, 0x00, 0x00, 0xE7, 0xAA, 0xAA, 0xDE, 0x01, 0x00, 0x92, 0xFF, 0x25, 0x08,
+            0x8D, 0xFE, 0xEC, 0xFF, 0xD1, 0x03, 0x00, 0x00, 0x00, 0xE7, 0xFF, 0xAA, 0xDE, 0x01,
+            0x00, 0x92, 0xFF, 0x25, 0x08, 0x8D, 0xFE, 0xEC, 0xFF, 0xD1, 0x03, 0x00, 0x00, 0x00,
+            0xE7,
+        ];
+        static BB: BBBuffer<{ BUFFER_SIZE }> = BBBuffer::new();
+        let create_option = match create(BB.borrow()) {
+            Ok((proc, pars)) => Some((proc, pars)),
+            Err(_) => None,
+        };
+        assert_eq!(matches!(create_option, None), false);
+        let (mut processor, mut parser) = create_option.unwrap();
+        let mut flag_in_worker = 0;
+        for iter in test_data.iter() {
+            let byte = *iter;
+            let processor_result = processor.process_slice(&[byte]);
+            assert_eq!(
+                matches!(
+                    processor_result,
+                    Err(Error::BbqError(bbqueue::Error::InsufficientSize))
+                ),
+                false
+            );
+            parser
+                .worker(|frame| {
+                    assert_eq!(*frame, TEST_FRAME);
+                    flag_in_worker += 1;
+                })
+                .unwrap();
+        }
+        assert_eq!(flag_in_worker, 1);
+        match parser.consumer.read() {
+            Ok(_) => {
+                panic!("Rgr is not empty!");
+            }
+            Err(e) => {
+                assert_eq!(matches!(e, bbqueue::Error::InsufficientSize), true);
+            }
+        }
     }
 }

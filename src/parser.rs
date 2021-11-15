@@ -19,10 +19,12 @@ pub struct Bno08xRvcRawFrame {
     pub csum: u8,
 }
 
+#[derive(PartialEq)]
 enum State {
     LookingForFirstHeaderByte,
     LookingForSecondHeaderByte,
     GetFrameData,
+    GotFrame,
 }
 
 pub struct Parser {
@@ -45,74 +47,77 @@ impl Parser {
     }
 
     pub fn worker<F: FnMut(&Bno08xRvcRawFrame)>(&mut self, mut f_opt: F) -> Result<(), Error> {
-        return match self.consumer.read() {
-            Ok(rgr) => match self.parse(rgr.as_ref()) {
-                None => Ok(()),
-                Some((frame_option, release_size)) => {
-                    rgr.release(release_size);
-                    match frame_option {
-                        None => Ok(()),
-                        Some(frame) => {
-                            f_opt(frame.borrow());
-                            Ok(())
+        return match self.consumer.split_read() {
+            Err(e) => Err(Error::BbqError(e)),
+            Ok(rgr) => {
+                let (s1, s2) = rgr.bufs();
+                let mut tmp = [0u8; BUFFER_SIZE];
+                tmp[0..s1.len()].copy_from_slice(s1);
+                tmp[s1.len()..s1.len() + s2.len()].copy_from_slice(s2);
+                match self.parse(&tmp[0..(s1.len() + s2.len())]) {
+                    None => Ok(()),
+                    Some((frame_option, release_size)) => {
+                        rgr.release(release_size);
+                        match frame_option {
+                            None => Ok(()),
+                            Some(frame) => {
+                                f_opt(frame.borrow());
+                                Ok(())
+                            }
                         }
                     }
                 }
-            },
-            Err(e) => Err(Error::BbqError(e)),
+            }
         };
     }
 
     fn parse(&mut self, raw_bytes: &[u8]) -> Option<(Option<Bno08xRvcRawFrame>, usize)> {
-        if raw_bytes.len() >= BNO08X_UART_RVC_FRAME_SIZE {
-            let mut rem_len = raw_bytes.len();
-            let mut release_size = raw_bytes.len();
-            for (idx, iter) in raw_bytes.iter().enumerate() {
-                match self.state {
-                    State::LookingForFirstHeaderByte => {
-                        if *iter == (BNO08X_UART_RVC_HEADER >> 8) as u8 {
-                            self.state = State::LookingForSecondHeaderByte;
-                        } else {
-                            self.state = State::LookingForFirstHeaderByte;
-                        }
-                    }
-                    State::LookingForSecondHeaderByte => {
-                        if *iter == BNO08X_UART_RVC_HEADER as u8 {
-                            self.state = State::GetFrameData;
-                        } else {
-                            self.state = State::LookingForSecondHeaderByte;
-                        }
-                    }
-                    State::GetFrameData => {
-                        if rem_len >= (BNO08X_UART_RVC_FRAME_SIZE - 2) {
-                            let data = &raw_bytes[idx..(idx + BNO08X_UART_RVC_FRAME_SIZE - 2)];
-                            let csum = data[0..(data.len() - 1)]
-                                .iter()
-                                .map(|v| *v as u32)
-                                .sum::<u32>() as u8;
-                            let frame_unchecked: Bno08xRvcRawFrame =
-                                postcard::from_bytes(data).ok()?;
-                            if csum == frame_unchecked.csum {
-                                self.last_frame = Some(frame_unchecked);
-                            }
-                            release_size = idx + BNO08X_UART_RVC_FRAME_SIZE - 2;
-                        } else {
-                            release_size = 0;
-                        }
+        let mut release_size = 0;
+        for (idx, iter) in raw_bytes.iter().enumerate() {
+            match self.state {
+                State::LookingForFirstHeaderByte => {
+                    if *iter == (BNO08X_UART_RVC_HEADER >> 8) as u8 {
+                        self.state = State::LookingForSecondHeaderByte;
+                    } else {
                         self.state = State::LookingForFirstHeaderByte;
-                        break;
+                        release_size = idx + 1;
                     }
                 }
-                rem_len -= 1;
+                State::LookingForSecondHeaderByte => {
+                    if *iter == BNO08X_UART_RVC_HEADER as u8 {
+                        self.state = State::GetFrameData;
+                    } else {
+                        self.state = State::LookingForFirstHeaderByte;
+                        release_size = idx + 1;
+                    }
+                }
+                State::GetFrameData => {
+                    if raw_bytes.len() - idx >= (BNO08X_UART_RVC_FRAME_SIZE - 2) {
+                        let data = &raw_bytes[idx..(idx + BNO08X_UART_RVC_FRAME_SIZE - 2)];
+                        let csum = data[0..(data.len() - 1)]
+                            .iter()
+                            .map(|v| *v as u32)
+                            .sum::<u32>() as u8;
+                        let frame_unchecked: Bno08xRvcRawFrame = postcard::from_bytes(data).ok()?;
+                        if csum == frame_unchecked.csum {
+                            self.last_frame = Some(frame_unchecked);
+                        }
+                        release_size = idx + BNO08X_UART_RVC_FRAME_SIZE - 2;
+                        self.state = State::GotFrame;
+                    } else {
+                        self.state = State::LookingForFirstHeaderByte;
+                    }
+                    break;
+                }
+                _ => {}
             }
-            if rem_len == 0 {
-                self.state = State::LookingForFirstHeaderByte;
-                Some((None, release_size))
-            } else {
-                Some((self.last_frame, release_size))
-            }
+        }
+        if self.state == State::GotFrame {
+            self.state = State::LookingForFirstHeaderByte;
+            Some((self.last_frame, release_size))
         } else {
-            None
+            self.state = State::LookingForFirstHeaderByte;
+            Some((None, release_size))
         }
     }
 }

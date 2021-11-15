@@ -14,7 +14,7 @@ impl Processor {
     pub fn process_slice(&mut self, slice: &[u8]) -> Result<(), Error> {
         match self.producer.grant_exact(slice.len()) {
             Ok(mut wgr) => {
-                wgr[0..slice.len()].copy_from_slice(slice);
+                wgr.copy_from_slice(slice);
                 wgr.commit(slice.len());
                 return Ok(());
             }
