@@ -19,6 +19,47 @@ pub struct Bno08xRvcRawFrame {
     pub csum: u8,
 }
 
+const G_ACCELERATION: f32 = 9.80665;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Bno08xRvcPrettyFrame {
+    pub index: u8,  // A monotonically increasing 8-bit count is provided (0-255) per report
+    pub yaw: f32, // The yaw is a measure of the rotation around the Z-axis since reset. The yaw has a range of +/- 180̊  and is provided in 0.01̊  increments.
+    pub pitch: f32, // The pitch is a measure of the rotation around the Y-axis. The pitch has a range of +/- 90̊  and is provided in 0.01̊  increments
+    pub roll: f32, // The roll is a measure of the rotation around the X-axis. The roll has a range of +/- 180̊  and is provided in 0.01̊  increments
+    pub x_acc: f32, // The acceleration along the X-axis, presented in m/s2
+    pub y_acc: f32, // The acceleration along the Y-axis, presented in m/s2
+    pub z_acc: f32, // The acceleration along the Z-axis, presented in m/s2
+    pub motion_intent: u8, // BNO086 only. Otherwise, reserved
+    pub motion_request: u8, // BNO086 only. Otherwise, reserved
+    pub rsvd: u8, // The message is terminated with one (BNO086) or three (otherwise) reserved bytes, currently set to zero
+}
+
+impl Bno08xRvcRawFrame {
+    fn convert(&self) -> Bno08xRvcPrettyFrame {
+        Bno08xRvcPrettyFrame {
+            index: self.index,
+            yaw: (self.yaw as f32) / 100.0,
+            pitch: (self.pitch as f32) / 100.0,
+            roll: (self.roll as f32) / 100.0,
+            x_acc: (self.x_acc as f32) * G_ACCELERATION / 1000.0,
+            y_acc: (self.y_acc as f32) * G_ACCELERATION / 1000.0,
+            z_acc: (self.z_acc as f32) * G_ACCELERATION / 1000.0,
+            motion_intent: self.motion_intent,
+            motion_request: self.motion_request,
+            rsvd: self.rsvd,
+        }
+    }
+
+    pub fn as_pretty_frame(&self) -> Bno08xRvcPrettyFrame {
+        self.convert()
+    }
+
+    pub fn as_pretty_closure<F: FnMut(&Bno08xRvcPrettyFrame)>(&self, mut f: F) {
+        f(&self.convert());
+    }
+}
+
 #[derive(PartialEq)]
 enum State {
     LookingForFirstHeaderByte,
