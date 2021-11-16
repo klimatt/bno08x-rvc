@@ -2,9 +2,15 @@
 name = "bno08x-rvc"
 version = "0.1.1"
 edition = "2018"
-authors = ["Matvei Klimov <matvei@wheel.me>"]
+authors = ["Matvei Klimov <klimatt.gu@gmail.com>"]
 description = "Small library to parse bno08x-sensor (bno080, bno085, bno086) output in RVC mode. Based on lockless queues."
 readme = "README.md"
+categories = ["embedded", "no-std"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/klimatt/bno08x-rvc"
+exclude = [
+    "bno08x_rvc_datasheet.pdf"
+]
 
 [dependencies]
 bbqueue = "0.5.0"
