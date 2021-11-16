@@ -43,6 +43,11 @@ fn main() -> std::io::Result<()> {
     }
 
     println!("Get last raw frame: {:?}", parser.get_last_raw_frame());
+    
+    println!(
+        "Get last pretty frame: {:?}", parser.get_last_raw_frame().unwrap().as_pretty_frame()
+    );
+    
     Ok(())
 }
 ```
