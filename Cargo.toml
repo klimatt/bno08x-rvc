@@ -1,6 +1,6 @@
 [package]
 name = "bno08x-rvc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2018"
 authors = ["Matvei Klimov <klimatt.gu@gmail.com>"]
 description = "Small library to parse bno08x-sensor (bno080, bno085, bno086) output in RVC mode. Based on lockless queues."
