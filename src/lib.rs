@@ -30,7 +30,7 @@ pub fn create(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::Bno08xRvcRawFrame;
+    use crate::parser::{Bno08xRvcPrettyFrame, Bno08xRvcRawFrame};
     use core::borrow::Borrow;
 
     const TEST_FRAME: Bno08xRvcRawFrame = Bno08xRvcRawFrame {
@@ -417,5 +417,63 @@ mod tests {
                 assert_eq!(matches!(e, bbqueue::Error::InsufficientSize), true);
             }
         }
+    }
+
+    #[test]
+    fn pretty_output_test() {
+        const P_FRAME: Bno08xRvcPrettyFrame = Bno08xRvcPrettyFrame {
+            index: 222,
+            yaw: 0.01,
+            pitch: -1.10,
+            roll: 20.85,
+            x_acc: -3.638,
+            y_acc: -0.196,
+            z_acc: 9.581,
+            motion_intent: 0,
+            motion_request: 0,
+            rsvd: 0,
+        };
+
+        let frame = TEST_FRAME.as_pretty_frame();
+        assert_eq!(frame.index, P_FRAME.index);
+        assert!(
+            (frame.yaw - P_FRAME.yaw).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.yaw,
+            P_FRAME.yaw
+        );
+        assert!(
+            (frame.pitch - P_FRAME.pitch).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.pitch,
+            P_FRAME.pitch
+        );
+        assert!(
+            (frame.roll - P_FRAME.roll).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.roll,
+            P_FRAME.roll
+        );
+        assert!(
+            (frame.x_acc - P_FRAME.x_acc).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.x_acc,
+            P_FRAME.x_acc
+        );
+        assert!(
+            (frame.y_acc - P_FRAME.y_acc).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.y_acc,
+            P_FRAME.y_acc
+        );
+        assert!(
+            (frame.z_acc - P_FRAME.z_acc).abs() < 0.001,
+            "a = {}, b = {}",
+            frame.z_acc,
+            P_FRAME.z_acc
+        );
+        assert_eq!(frame.motion_intent, P_FRAME.motion_intent);
+        assert_eq!(frame.motion_request, P_FRAME.motion_request);
+        assert_eq!(frame.rsvd, P_FRAME.rsvd);
     }
 }

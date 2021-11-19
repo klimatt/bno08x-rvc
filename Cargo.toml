@@ -17,18 +17,3 @@ bbqueue = "0.5.0"
 postcard = { version = "0.7.2", default-features = false }
 serde = { version = "1.0.130", default-features = false, features = ["derive"] }
 
-[dev-dependencies]
-cortex-m = "0.6.7"
-cortex-m-rt = "0.6.13"
-rtt-target = { version = "0.2.2", features = ["cortex-m"] }
-embedded-hal = "0.2.4"
-cortex-m-rtic = "0.6.0-rc.2"
-dwt-systick-monotonic = "0.1.0-rc.1"
-cty = "0.2.1"
-nb = "1.0.0"
-
-[dev-dependencies.stm32l4xx-hal]
-version = "0.6"
-default-features = false
-features = ["rt", "stm32l4x6"]
-optional = false
